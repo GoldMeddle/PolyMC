@@ -217,7 +217,7 @@
           <item row="2" column="0">
            <widget class="QLabel" name="label_7">
             <property name="text">
-             <string>API key currently in use. You can replace it with a custom key; editing this field disables automatic official key updates.</string>
+             <string>Editing this field disables automatic key updates.</string>
             </property>
             <property name="textFormat">
              <enum>Qt::RichText</enum>
@@ -236,7 +236,7 @@
              <bool>true</bool>
             </property>
             <property name="placeholderText">
-             <string>(No key provided: CurseForge downloads disabled)</string>
+             <string>No key provided: CurseForge downloads disabled</string>
             </property>
            </widget>
           </item>
@@ -256,7 +256,7 @@
              </sizepolicy>
             </property>
             <property name="text">
-             <string>PolyMC uses the official CurseForge Launcher API key by default. You may replace it with a custom key if desired.</string>
+             <string>PolyMC uses the official CurseForge launcher API key by default. You may replace it with a custom key if desired.</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
