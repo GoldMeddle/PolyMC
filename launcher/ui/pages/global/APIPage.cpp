@@ -89,7 +89,10 @@ APIPage::APIPage(QWidget *parent) :
     ui->userAgentLineEdit->setPlaceholderText(BuildConfig.USER_AGENT);
 
     if (BuildConfig.FLAME_API_KEY_API_URL.isEmpty())
+    {
         ui->fetchKeyButton->hide();
+        ui->autoUpdateFlameKeyCheckBox->hide();
+    }
 
     loadSettings();
 
@@ -97,6 +100,10 @@ APIPage::APIPage(QWidget *parent) :
     connect(ui->pasteTypeComboBox, currentIndexChangedSignal, this, &APIPage::updateBaseURLNote);
     connect(ui->baseURLEntry, &QLineEdit::textEdited, this, &APIPage::resetBaseURLNote);
 
+    connect(ui->flameKey, &QLineEdit::textEdited, this, [this](const QString &) {
+        // Manually changing the key opts out of automatic official-key updates.
+        ui->autoUpdateFlameKeyCheckBox->setChecked(false);
+    });
     connect(ui->fetchKeyButton, &QPushButton::clicked, this, &APIPage::fetchKeyButtonPressed);
 }
 
@@ -153,6 +160,7 @@ void APIPage::loadSettings()
     ui->metaURL->setText(metaURL);
     QString flameKey = s->get("FlameKeyOverride").toString();
     ui->flameKey->setText(flameKey);
+    ui->autoUpdateFlameKeyCheckBox->setChecked(s->get("FlameKeyAutoUpdate").toBool());
     QString customUserAgent = s->get("UserAgentOverride").toString();
     ui->userAgentLineEdit->setText(customUserAgent);
 }
@@ -186,6 +194,7 @@ void APIPage::applySettings()
     s->set("MetaURLOverride", metaURL);
     QString flameKey = ui->flameKey->text();
     s->set("FlameKeyOverride", flameKey);
+    s->set("FlameKeyAutoUpdate", ui->autoUpdateFlameKeyCheckBox->isChecked());
     s->set("UserAgentOverride", ui->userAgentLineEdit->text());
 
     APPLICATION->updateCapabilities();
@@ -196,7 +205,10 @@ void APIPage::fetchKeyButtonPressed()
     QString apiKey = GuiUtil::fetchFlameKey(parentWidget());
 
     if (!apiKey.isEmpty())
+    {
         ui->flameKey->setText(apiKey);
+        ui->autoUpdateFlameKeyCheckBox->setChecked(true);
+    }
 }
 
 bool APIPage::apply()

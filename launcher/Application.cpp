@@ -96,6 +96,7 @@
 #include <minecraft/auth/AccountList.h>
 #include "icons/IconList.h"
 #include "net/HttpMetaCache.h"
+#include "net/FetchFlameAPIKey.h"
 
 #include "ui/GuiUtil.h"
 
@@ -681,7 +682,7 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
         // Custom Microsoft Authentication Client ID
         m_settings->registerSetting("MSAClientIDOverride", "");
 
-        // Custom Flame API Key
+        // CurseForge Core API key
         {
             m_settings->registerSetting("CFKeyOverride", "");
             m_settings->registerSetting("FlameKeyOverride", "");
@@ -692,7 +693,7 @@ Application::Application(int &argc, char **argv) : QApplication(argc, argv)
                 m_settings->set("FlameKeyOverride", flameKey);
             m_settings->reset("CFKeyOverride");
         }
-        m_settings->registerSetting("FlameKeyShouldBeFetchedOnStartup", true);
+        m_settings->registerSetting("FlameKeyAutoUpdate", true);
         m_settings->registerSetting("UserAgentOverride", "");
 
         // Init page provider
@@ -983,6 +984,26 @@ void Application::performMainStartupAction()
 {
     m_status = Application::Initialized;
 
+    // Keep the official CurseForge Launcher API key current by default.
+    // This runs silently; on failure, retain the currently configured key
+    // and try again on a future launcher start.
+    if (!BuildConfig.FLAME_API_KEY_API_URL.isEmpty()
+        && m_settings->get("FlameKeyAutoUpdate").toBool())
+    {
+        auto *flameKeyTask = new FetchFlameAPIKey(this);
+        connect(flameKeyTask, &Task::succeeded, this, [this, flameKeyTask]() {
+            // The setting may have been changed while the request was in flight.
+            if (!flameKeyTask->m_result.isEmpty()
+                && m_settings->get("FlameKeyAutoUpdate").toBool())
+            {
+                m_settings->set("FlameKeyOverride", flameKeyTask->m_result);
+                updateCapabilities();
+            }
+        });
+        connect(flameKeyTask, &Task::finished, flameKeyTask, &QObject::deleteLater);
+        flameKeyTask->start();
+    }
+
     if(!m_instanceIdToLaunch.isEmpty())
     {
         auto inst = instances()->getInstanceById(m_instanceIdToLaunch);
@@ -1011,31 +1032,6 @@ void Application::performMainStartupAction()
             launch(inst, true, false, nullptr, serverToJoin, accountToUse);
             return;
         }
-    }
-
-    {
-        bool shouldFetch = m_settings->get("FlameKeyShouldBeFetchedOnStartup").toBool();
-        if (!BuildConfig.FLAME_API_KEY_API_URL.isEmpty() && shouldFetch && !(capabilities() & Capability::SupportsFlame))
-        {
-            auto response = QMessageBox::question(nullptr,
-                                                  tr("Curseforge Core API Key"),
-                                                  tr("Should PolyMC try to fetch the Official Curseforge Launcher's API Key? "
-                                                     "Using this key technically breaks Curseforge's Terms of Service, but this distribution of PolyMC "
-                                                     "does not come with a Curseforge API key by default, so without this key or another valid API key, "
-                                                     "which you can always change in the settings, you won't be able to download Curseforge modpacks."),
-                                                  QMessageBox::Yes | QMessageBox::No);
-
-            if (response == QMessageBox::Yes)
-            {
-                QString apiKey = GuiUtil::fetchFlameKey();
-                if (!apiKey.isEmpty())
-                {
-                    m_settings->set("FlameKeyOverride", apiKey);
-                    updateCapabilities();
-                }
-            }
-        }
-        m_settings->set("FlameKeyShouldBeFetchedOnStartup", false);
     }
 
     if(!m_mainWindow)
