@@ -24,7 +24,7 @@ ListModel::~ListModel()
     s_running.find(this).value() = false;
 }
 
-auto ListModel::debugName() const -> QString
+QString ListModel::debugName() const
 {
     return m_parent->debugName();
 }
@@ -42,7 +42,7 @@ void ListModel::fetchMore(const QModelIndex& parent)
     performPaginatedSearch();
 }
 
-auto ListModel::data(const QModelIndex& index, int role) const -> QVariant
+QVariant ListModel::data(const QModelIndex& index, int role) const
 {
     int pos = index.row();
     if (pos >= modpacks.size() || pos < 0 || !index.isValid()) {
@@ -105,7 +105,7 @@ void ListModel::requestModVersions(ModPlatform::IndexedPack const& current, QMod
 {
     auto profile = (dynamic_cast<MinecraftInstance*>((dynamic_cast<ModPage*>(parent()))->m_instance))->getPackProfile();
 
-    m_parent->apiProvider()->getVersions({ current.addonId.toString(), getMineVersions(), profile->getModLoaders() },
+    m_parent->apiProvider()->getVersions({ current.addonId.toString(), getMineVersions(), profile->getModLoaders(), m_parent->resourceType() },
                                          [this, current, index](QJsonDocument& doc, QString addonId) {
                                              if (!s_running.constFind(this).value())
                                                  return;
@@ -118,7 +118,7 @@ void ListModel::performPaginatedSearch()
     auto profile = (dynamic_cast<MinecraftInstance*>((dynamic_cast<ModPage*>(parent()))->m_instance))->getPackProfile();
 
     m_parent->apiProvider()->searchMods(
-        this, { nextSearchOffset, currentSearchTerm, getSorts()[currentSort], profile->getModLoaders(), getMineVersions() });
+        this, { nextSearchOffset, currentSearchTerm, getSorts()[currentSort], profile->getModLoaders(), getMineVersions(), m_parent->resourceType() });
 }
 
 void ListModel::requestModInfo(ModPlatform::IndexedPack& current, QModelIndex index)
@@ -224,7 +224,7 @@ void ListModel::searchRequestFinished(QJsonDocument& doc)
     QList<ModPlatform::IndexedPack> newList;
     auto packs = documentToArray(doc);
 
-    for (auto packRaw : packs) {
+    for (auto packRaw : std::as_const(packs)) {
         auto packObj = packRaw.toObject();
 
         ModPlatform::IndexedPack pack;
@@ -337,7 +337,7 @@ void ListModel::versionRequestSucceeded(QJsonDocument doc, QString addonId, cons
 
 /******** Helpers ********/
 
-auto ModPlatform::ListModel::getMineVersions() const -> std::list<Version>
+std::list<Version> ModPlatform::ListModel::getMineVersions() const
 {
     return m_parent->getFilter()->versions;
 }

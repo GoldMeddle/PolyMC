@@ -9,18 +9,18 @@ ConcurrentTask::ConcurrentTask(QObject* parent, QString task_name, int max_concu
 
 ConcurrentTask::~ConcurrentTask()
 {
-    for (auto task : m_queue) {
+    for (const auto &task : std::as_const(m_queue)) {
         if (task)
             task->deleteLater();
     }
 }
 
-auto ConcurrentTask::getStepProgress() const -> qint64
+qint64 ConcurrentTask::getStepProgress() const
 {
     return m_stepProgress;
 }
 
-auto ConcurrentTask::getStepTotalProgress() const -> qint64
+qint64 ConcurrentTask::getStepTotalProgress() const
 {
     return m_stepTotalProgress;
 }

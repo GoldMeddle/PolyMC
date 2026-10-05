@@ -4,6 +4,7 @@
 #include <QVBoxLayout>
 #include <QHeaderView>
 
+#include "Application.h"
 #include "VersionProxyModel.h"
 
 #include "ui/dialogs/CustomMessageBox.h"
@@ -30,6 +31,19 @@ VersionSelectWidget::VersionSelectWidget(QWidget* parent)
     listView->setModel(m_proxyModel);
     verticalLayout->addWidget(listView);
 
+    ignoreDuplicates = new QCheckBox(this);
+    ignoreDuplicates->setHidden(true);
+    ignoreDuplicates->setChecked(APPLICATION->settings()->get("IgnoreJavaSymlinks").toBool());
+    connect(ignoreDuplicates,
+#if QT_VERSION < QT_VERSION_CHECK(6, 7, 0)
+        &QCheckBox::stateChanged,
+#else
+        &QCheckBox::checkStateChanged,
+#endif
+        this, &VersionSelectWidget::updateSymlinkSetting);
+
+    verticalLayout->addWidget(ignoreDuplicates);
+
     sneakyProgressBar = new QProgressBar(this);
     sneakyProgressBar->setObjectName(QStringLiteral("sneakyProgressBar"));
     sneakyProgressBar->setFormat(QStringLiteral("%p%"));
@@ -38,6 +52,14 @@ VersionSelectWidget::VersionSelectWidget(QWidget* parent)
     connect(listView->selectionModel(), &QItemSelectionModel::currentRowChanged, this, &VersionSelectWidget::currentRowChanged);
 
     QMetaObject::connectSlotsByName(this);
+
+    // make checkbox the same height as the progress bar to prevent moving the listview around
+    const int reserved = qMax(sneakyProgressBar->sizeHint().height(),
+                              ignoreDuplicates->sizeHint().height());
+    sneakyProgressBar->setMinimumHeight(reserved);
+    ignoreDuplicates->setMinimumHeight(reserved);
+
+    retranslate();
 }
 
 void VersionSelectWidget::setCurrentVersion(const QString& version)
@@ -72,12 +94,19 @@ void VersionSelectWidget::setResizeOn(int column)
     listView->header()->setSectionResizeMode(resizeOnColumn, QHeaderView::Stretch);
 }
 
-void VersionSelectWidget::initialize(BaseVersionList *vlist)
+void VersionSelectWidget::retranslate() {
+    ignoreDuplicates->setText(tr("Don't list duplicate runtimes"));
+}
+
+void VersionSelectWidget::initialize(BaseVersionList *vlist, bool isJava)
 {
     m_vlist = vlist;
+    m_isJava = isJava;
     m_proxyModel->setSourceModel(vlist);
     listView->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
     listView->header()->setSectionResizeMode(resizeOnColumn, QHeaderView::Stretch);
+
+    ignoreDuplicates->setHidden(!isJava);
 
     if (!m_vlist->isLoaded())
     {
@@ -105,6 +134,7 @@ void VersionSelectWidget::loadList()
     {
         return;
     }
+
     loadTask = newTask.get();
     connect(loadTask, &Task::succeeded, this, &VersionSelectWidget::onTaskSucceeded);
     connect(loadTask, &Task::failed, this, &VersionSelectWidget::onTaskFailed);
@@ -113,7 +143,9 @@ void VersionSelectWidget::loadList()
     {
         loadTask->start();
     }
+
     sneakyProgressBar->setHidden(false);
+    ignoreDuplicates->setHidden(true);
 }
 
 void VersionSelectWidget::onTaskSucceeded()
@@ -122,7 +154,9 @@ void VersionSelectWidget::onTaskSucceeded()
     {
         listView->setEmptyMode(VersionListView::String);
     }
+
     sneakyProgressBar->setHidden(true);
+    ignoreDuplicates->setHidden(!m_isJava);
     preselect();
     loadTask = nullptr;
 }
@@ -143,6 +177,11 @@ void VersionSelectWidget::currentRowChanged(const QModelIndex& current, const QM
 {
     auto variant = m_proxyModel->data(current, BaseVersionList::VersionPointerRole);
     emit selectedVersionChanged(variant.value<BaseVersionPtr>());
+}
+
+void VersionSelectWidget::updateSymlinkSetting() {
+    APPLICATION->settings()->set("IgnoreJavaSymlinks", ignoreDuplicates->isChecked());
+    loadList();
 }
 
 void VersionSelectWidget::preselect()

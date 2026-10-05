@@ -89,7 +89,7 @@ set(Launcher_NEWS_OPEN_URL "https://polymc.org/news" CACHE STRING "URL that gets
 set(Launcher_HELP_URL "https://polymc.org/wiki/help-pages/%1" CACHE STRING "URL (with arg %1 to be substituted with page-id) that gets opened when the user requests help")
 
 ######## Set version numbers ########
-set(Launcher_VERSION_MAJOR 7)
+set(Launcher_VERSION_MAJOR 8)
 set(Launcher_VERSION_MINOR 0)
 
 set(Launcher_VERSION_NAME "${Launcher_VERSION_MAJOR}.${Launcher_VERSION_MINOR}")
@@ -164,37 +164,32 @@ endif()
 
 # Find the required Qt parts
 include(QtVersionlessBackport)
-if(Launcher_QT_VERSION_MAJOR EQUAL 5)
-    set(QT_VERSION_MAJOR 5)
-    find_package(Qt5 REQUIRED COMPONENTS Core Widgets Concurrent Network Test
-      Xml Charts)
-
-    if(NOT Launcher_FORCE_BUNDLED_LIBS)
-        find_package(QuaZip-Qt5 1.3 QUIET)
-    endif()
-    if (NOT QuaZip-Qt5_FOUND)
-        set(QUAZIP_QT_MAJOR_VERSION ${QT_VERSION_MAJOR} CACHE STRING "Qt version to use (4, 5 or 6), defaults to ${QT_VERSION_MAJOR}" FORCE)
-        set(FORCE_BUNDLED_QUAZIP 1)
-    endif()
-
-    # Qt 6 sets these by default. Notably causes Windows APIs to use UNICODE strings.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUNICODE -D_UNICODE")
-elseif(Launcher_QT_VERSION_MAJOR EQUAL 6)
-    set(QT_VERSION_MAJOR 6)
-    find_package(Qt6 REQUIRED COMPONENTS Core Widgets Concurrent Network Test
-      Xml Charts Core5Compat)
-    list(APPEND Launcher_QT_LIBS Qt6::Core5Compat)
-
-    if(NOT Launcher_FORCE_BUNDLED_LIBS)
-        find_package(QuaZip-Qt6 1.3 QUIET)
-    endif()
-    if (NOT QuaZip-Qt6_FOUND)
-        set(QUAZIP_QT_MAJOR_VERSION ${QT_VERSION_MAJOR} CACHE STRING "Qt version to use (4, 5 or 6), defaults to ${QT_VERSION_MAJOR}" FORCE)
-        set(FORCE_BUNDLED_QUAZIP 1)
-    endif()
-else()
+set(valid_qt_versions 5 6)
+if (NOT Launcher_QT_VERSION_MAJOR IN_LIST valid_qt_versions)
     message(FATAL_ERROR "Qt version ${Launcher_QT_VERSION_MAJOR} is not supported")
 endif()
+
+# TODO: Migrate to QXmlStream
+set(QT_VERSION_MAJOR ${Launcher_QT_VERSION_MAJOR})
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets
+    Concurrent Network Test Xml Charts)
+
+if(NOT Launcher_FORCE_BUNDLED_LIBS)
+    find_package(QuaZip-Qt${QT_VERSION_MAJOR} 1.3 QUIET)
+endif()
+
+if (NOT QuaZip-Qt${QT_VERSION_MAJOR}_FOUND)
+    set(QUAZIP_QT_MAJOR_VERSION ${QT_VERSION_MAJOR})
+    set(FORCE_BUNDLED_QUAZIP 1)
+endif()
+
+# removes Core5Compat dep
+if (QT_VERSION_MAJOR EQUAL 6)
+    set(QUAZIP_ENABLE_QTEXTCODEC OFF)
+endif()
+
+# Qt 6 sets these by default. Notably causes Windows APIs to use UNICODE strings.
+add_compile_definitions(UNICODE _UNICODE)
 
 include(ECMQueryQt)
 ecm_query_qt(QT_PLUGINS_DIR  QT_INSTALL_PLUGINS)
@@ -236,6 +231,7 @@ if(UNIX AND APPLE)
     set(FRAMEWORK_DEST_DIR "${Launcher_Name}.app/Contents/Frameworks")
     set(RESOURCES_DEST_DIR "${Launcher_Name}.app/Contents/Resources")
     set(JARS_DEST_DIR "${Launcher_Name}.app/Contents/MacOS/jars")
+    set(PROP_DEST_DIR "${Launcher_Name}.app/Contents/Resources")
 
     # Apps to bundle
     set(APPS "\${CMAKE_INSTALL_PREFIX}/${Launcher_Name}.app")
@@ -247,7 +243,7 @@ if(UNIX AND APPLE)
     set(MACOSX_BUNDLE_BUNDLE_VERSION "${Launcher_VERSION_NAME}")
     set(MACOSX_BUNDLE_SHORT_VERSION_STRING "${Launcher_VERSION_NAME}")
     set(MACOSX_BUNDLE_LONG_VERSION_STRING "${Launcher_VERSION_NAME}")
-    set(MACOSX_BUNDLE_ICON_FILE ${Launcher_Name}.icns)
+    set(MACOSX_BUNDLE_ICON_FILE ${Launcher_Name})
     set(MACOSX_BUNDLE_COPYRIGHT "Copyright 2021-2024 ${Launcher_Copyright}")
     set(MACOSX_SPARKLE_UPDATE_PUBLIC_KEY "idALcUIazingvKSSsEa9U7coDVxZVx/ORpOEE/QtJfg=")
     set(MACOSX_SPARKLE_UPDATE_FEED_URL "https://polymc.org/feed/appcast.xml")
@@ -269,6 +265,7 @@ elseif(UNIX)
     set(BINARY_DEST_DIR "bin")
     set(LIBRARY_DEST_DIR "lib${LIB_SUFFIX}")
     set(JARS_DEST_DIR "share/jars")
+    set(PROP_DEST_DIR "share/polymc")
     set(LAUNCHER_DESKTOP_DEST_DIR "share/applications" CACHE STRING "Path to the desktop file directory")
     set(LAUNCHER_METAINFO_DEST_DIR "share/metainfo" CACHE STRING "Path to the metainfo directory")
     set(LAUNCHER_ICON_DEST_DIR "share/icons/hicolor/scalable/apps" CACHE STRING "Path to the scalable icon directory")
@@ -297,6 +294,7 @@ elseif(WIN32)
     set(LIBRARY_DEST_DIR ".")
     set(PLUGIN_DEST_DIR ".")
     set(RESOURCES_DEST_DIR ".")
+    set(PROP_DEST_DIR ".")
     set(JARS_DEST_DIR "jars")
 
     # Apps to bundle

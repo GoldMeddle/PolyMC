@@ -20,7 +20,7 @@ ReviewMessageBox::~ReviewMessageBox()
     delete ui;
 }
 
-auto ReviewMessageBox::create(QWidget* parent, QString&& title, QString&& icon) -> ReviewMessageBox*
+ReviewMessageBox* ReviewMessageBox::create(QWidget* parent, QString&& title, QString&& icon)
 {
     return new ReviewMessageBox(parent, title, icon);
 }
@@ -39,7 +39,7 @@ void ReviewMessageBox::appendMod(ModInformation&& info)
     ui->modTreeWidget->addTopLevelItem(itemTop);
 }
 
-auto ReviewMessageBox::deselectedMods() -> QStringList
+QStringList ReviewMessageBox::deselectedMods()
 {
     QStringList list;
 
@@ -54,4 +54,12 @@ auto ReviewMessageBox::deselectedMods() -> QStringList
     }
 
     return list;
+}
+
+void ReviewMessageBox::setDescription(const QString& desc) {
+    ui->explainLabel->setText(desc);
+}
+
+void ReviewMessageBox::setCheckLabel(const QString& desc) {
+    ui->onlyCheckedLabel->setText(desc);
 }

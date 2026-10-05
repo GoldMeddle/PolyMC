@@ -54,6 +54,12 @@ class ModAPI {
    public:
     virtual ~ModAPI() = default;
 
+    enum ResourceType {
+        Mod,
+        ResourcePack,
+        ShaderPack,
+    };
+
     enum ModLoaderType {
         Unspecified = 0,
         Forge = 1 << 0,
@@ -71,24 +77,26 @@ class ModAPI {
         QString sorting;
         ModLoaderTypes loaders;
         std::list<Version> versions;
+        ResourceType type = Mod;
     };
 
     virtual void searchMods(CallerType* caller, SearchArgs&& args) const = 0;
     virtual void getModInfo(ModPlatform::IndexedPack& pack, std::function<void(QJsonDocument&, ModPlatform::IndexedPack&)> callback) = 0;
 
-    virtual auto getProject(QString addonId, QByteArray* response) const -> NetJob* = 0;
-    virtual auto getProjects(QStringList addonIds, QByteArray* response) const -> NetJob* = 0;
+    virtual NetJob* getProject(QString addonId, QByteArray* response) const = 0;
+    virtual NetJob* getProjects(QStringList addonIds, QByteArray* response) const = 0;
 
 
     struct VersionSearchArgs {
         QString addonId;
         std::list<Version> mcVersions;
         ModLoaderTypes loaders;
+        ResourceType type = Mod;
     };
 
     virtual void getVersions(VersionSearchArgs&& args, std::function<void(QJsonDocument&, QString)> callback) const = 0;
 
-    static auto getModLoaderString(ModLoaderType type) -> const QString {
+    static const QString getModLoaderString(ModLoaderType type) {
         switch (type) {
             case Unspecified:
                 break;
@@ -109,7 +117,7 @@ class ModAPI {
     }
 
    protected:
-    inline auto getGameVersionsString(std::list<Version> mcVersions) const -> QString
+    inline QString getGameVersionsString(std::list<Version> mcVersions) const
     {
         QString s;
         for(auto& ver : mcVersions){

@@ -17,6 +17,15 @@ set(SRC
     org/polymc/utils/Parameters.java
     org/polymc/utils/Utils.java
     net/minecraft/Launcher.java
+    com/mojang/patchy/BlockedServers.java
 )
 add_jar(NewLaunch ${SRC})
 install_jar(NewLaunch "${JARS_DEST_DIR}")
+
+include(GNUInstallDirs)
+install(FILES legacy-jar-security.properties
+    DESTINATION ${PROP_DEST_DIR})
+
+# needed for local builds
+file(COPY_FILE legacy-jar-security.properties
+    ${CMAKE_BINARY_DIR}/legacy-jar-security.properties)

@@ -1,5 +1,3 @@
-project(application)
-
 ################################ FILES ################################
 
 ######## Sources and headers ########
@@ -16,6 +14,8 @@ set(CORE_SOURCES
     InstanceTask.cpp
     LoggedProcess.h
     LoggedProcess.cpp
+    PolyMCTextCodec.h
+    PolyMCTextCodec.cpp
     MessageLevel.cpp
     MessageLevel.h
     BaseVersion.h
@@ -682,8 +682,13 @@ SET(LAUNCHER_SOURCES
     ui/pages/instance/VersionPage.cpp
     ui/pages/instance/VersionPage.h
     ui/pages/instance/TexturePackPage.h
+    ui/pages/instance/TexturePackPage.cpp
+    ui/pages/instance/DownloadableResourcesPage.h
+    ui/pages/instance/DownloadableResourcesPage.cpp
     ui/pages/instance/ResourcePackPage.h
+    ui/pages/instance/ResourcePackPage.cpp
     ui/pages/instance/ShaderPackPage.h
+    ui/pages/instance/ShaderPackPage.cpp
     ui/pages/instance/ModFolderPage.cpp
     ui/pages/instance/ModFolderPage.h
     ui/pages/instance/NotesPage.cpp
@@ -975,7 +980,8 @@ if(WIN32)
 endif()
 
 # Add executable
-add_library(Launcher_logic STATIC ${LOGIC_SOURCES} ${LAUNCHER_SOURCES} ${LAUNCHER_UI} ${LAUNCHER_RESOURCES})
+add_library(Launcher_logic STATIC
+    ${LOGIC_SOURCES} ${LAUNCHER_SOURCES} ${LAUNCHER_UI} ${LAUNCHER_RESOURCES})
 target_include_directories(Launcher_logic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(Launcher_logic
     systeminfo
@@ -1043,6 +1049,12 @@ endif()
 if(DEFINED Launcher_APP_BINARY_DEFS)
     target_compile_definitions(${Launcher_Name} PRIVATE ${Launcher_APP_BINARY_DEFS})
     target_compile_definitions(Launcher_logic PRIVATE ${Launcher_APP_BINARY_DEFS})
+endif()
+
+if (UNIX AND APPLE)
+    # liquid glass icon
+    include(MacOSIcon)
+    MacOSIcon(${PROJECT_SOURCE_DIR}/program_info polymc ${Launcher_Name})
 endif()
 
 install(TARGETS ${Launcher_Name}

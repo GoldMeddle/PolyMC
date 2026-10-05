@@ -64,7 +64,9 @@
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
 #include <QToolButton>
+#include <QVBoxLayout>
 #include <QWidgetAction>
 #include <QProgressDialog>
 #include <QShortcut>
@@ -300,7 +302,8 @@ class MainWindow::Ui
     QVector<TranslatedToolButton *> all_toolbuttons;
 
     QWidget *centralWidget = nullptr;
-    QHBoxLayout *horizontalLayout = nullptr;
+    QVBoxLayout *centralLayout = nullptr;
+    QLineEdit *instanceSearch = nullptr;
     QStatusBar *statusBar = nullptr;
 
     QMenuBar *menuBar = nullptr;
@@ -470,7 +473,7 @@ class MainWindow::Ui
         if (!BuildConfig.BUG_TRACKER_URL.isEmpty()) {
             helpMenu->addAction(actionReportBug);
         }
-        
+
         if (!BuildConfig.DISCORD_URL.isEmpty()) {
             helpMenu->addAction(actionDISCORD);
         }
@@ -738,7 +741,7 @@ class MainWindow::Ui
         actionChangeInstGroup.setTooltipId(QT_TRANSLATE_NOOP("MainWindow", "Change the selected instance's group."));
         actionChangeInstGroup->setShortcut(QKeySequence(tr("Ctrl+G")));
         all_actions.append(&actionChangeInstGroup);
-        
+
         // FIXME: Add a way to create shortcuts on Mac.
 #ifndef __APPLE__
         actionCreateShortcut = TranslatedAction(MainWindow);
@@ -870,11 +873,20 @@ class MainWindow::Ui
 
         centralWidget = new QWidget(MainWindow);
         centralWidget->setObjectName(QStringLiteral("centralWidget"));
-        horizontalLayout = new QHBoxLayout(centralWidget);
-        horizontalLayout->setSpacing(0);
-        horizontalLayout->setObjectName(QStringLiteral("horizontalLayout"));
-        horizontalLayout->setSizeConstraint(QLayout::SetDefaultConstraint);
-        horizontalLayout->setContentsMargins(0, 0, 0, 0);
+        centralLayout = new QVBoxLayout(centralWidget);
+        centralLayout->setSpacing(4);
+        centralLayout->setObjectName(QStringLiteral("centralLayout"));
+        centralLayout->setSizeConstraint(QLayout::SetDefaultConstraint);
+        centralLayout->setContentsMargins(8, 8, 8, 0);
+
+        instanceSearch = new QLineEdit(centralWidget);
+        instanceSearch->setObjectName(QStringLiteral("instanceSearch"));
+        instanceSearch->setPlaceholderText(QApplication::translate("MainWindow", "Search instances..."));
+        instanceSearch->setAccessibleName(QApplication::translate("MainWindow", "Search instances"));
+        instanceSearch->setClearButtonEnabled(true);
+        instanceSearch->setFocusPolicy(Qt::StrongFocus);
+        centralLayout->addWidget(instanceSearch);
+
         MainWindow->setCentralWidget(centralWidget);
 
         createStatusBar(MainWindow);
@@ -891,21 +903,26 @@ class MainWindow::Ui
     void retranslateUi(MainWindow *MainWindow)
     {
         // all the actions
-        for(auto * item: all_actions)
+        for (auto * item : std::as_const(all_actions))
         {
             item->retranslate();
         }
-        for(auto * item: all_toolbars)
+        for (auto * item : std::as_const(all_toolbars))
         {
             item->retranslate();
         }
-        for(auto * item: all_toolbuttons)
+        for (auto * item : std::as_const(all_toolbuttons))
         {
             item->retranslate();
         }
         // submenu buttons
         foldersMenuButton->setText(tr("Folders"));
         helpMenuButton->setText(tr("Help"));
+        if (instanceSearch)
+        {
+            instanceSearch->setPlaceholderText(tr("Search instances..."));
+            instanceSearch->setAccessibleName(tr("Search instances"));
+        }
 
                 // playtime counter
         if (MainWindow->m_statusCenter)
@@ -975,7 +992,28 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new MainWindow
             return APPLICATION->instances()->isGroupCollapsed(groupName);
         });
         connect(view, &InstanceView::groupStateChanged, APPLICATION->instances().get(), &InstanceList::on_GroupStateChanged);
-        ui->horizontalLayout->addWidget(view);
+        ui->centralLayout->addWidget(view, 1);
+    }
+    // Instance search
+    {
+        connect(ui->instanceSearch, &QLineEdit::textChanged, proxymodel, &InstanceProxyModel::setSearchTerm);
+        connect(ui->instanceSearch, &QLineEdit::returnPressed, this, [this]() {
+            auto first = proxymodel->index(0, 0);
+            if (first.isValid()) {
+                view->selectionModel()->setCurrentIndex(first, QItemSelectionModel::ClearAndSelect);
+            }
+        });
+
+        auto focusSearch = new QShortcut(QKeySequence::Find, this);
+        connect(focusSearch, &QShortcut::activated, this, [this]() { ui->instanceSearch->setFocus(); });
+
+        auto clearSearch = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+        connect(clearSearch, &QShortcut::activated, this, [this]() {
+            if (ui->instanceSearch->hasFocus() && !ui->instanceSearch->text().isEmpty()) {
+                ui->instanceSearch->clear();
+                view->setFocus();
+            }
+        });
     }
     // The cat background
     {
@@ -1279,7 +1317,7 @@ void MainWindow::updateToolsMenu()
 
     QString profilersTitle = tr("Profilers");
     launchMenu->addSeparator()->setText(profilersTitle);
-    for (auto profiler : APPLICATION->profilers().values())
+    for (const auto &profiler : APPLICATION->profilers().values())
     {
         QAction *profilerAction = launchMenu->addAction(profiler->name());
         QAction *profilerOfflineAction = launchMenu->addAction(tr("%1 Offline").arg(profiler->name()));
@@ -1634,7 +1672,7 @@ void MainWindow::setCatBackground(bool enabled)
 
         QString cat = "default";
         QString catStyleOpt = APPLICATION->settings()->get("CatStyle").toString();
-        
+
         if(catStyleOpt == "Manul")
             cat = "manul";
         else if(catStyleOpt == "Floppa")
@@ -1894,7 +1932,7 @@ void MainWindow::on_actionCreateShortcut_triggered()
 {
     if (!m_selectedInstance)
         return;
-  
+
     auto desktop = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
     auto executable_path = APPLICATION->applicationFilePath();
     if (APPLICATION->isFlatpak()) {
